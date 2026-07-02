@@ -1,0 +1,159 @@
+\documentclass[a4paper,11pt]{ctexart}
+
+% 基础宏包
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{needspace}
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=2em}
+\setlength{\parskip}{2pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{2pt}
+
+% 伪代码样式设置
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red!70!black},
+    commentstyle=\color{green!50!black}\itshape,
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    frame=single,
+    breaklines=true,
+    backgroundcolor=\color{gray!5}
+}
+
+% 标题信息
+\title{\textbf{《智能系统创新实践》附件}\\模型与算法设计文档（第一版）}
+\author{项目名称：小尺度动态环境模拟与智能交互验证平台}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{samepage}
+\section{系统整体架构定义}
+
+本项目旨在构建一个面向具身智能的"物理沙盒"，用于提供含有真实物理噪声与非线性形变的动态交互数据。由于真实物理底座（硅胶薄膜与液态金属）存在控制迟滞，系统架构设计奉行"降维降频"原则，采用离散环境状态驱动与局部状态切片策略。
+
+\subsection{平台输入输出流定义}
+\begin{itemize}
+    \item \textbf{硬件执行器输入}：$4 \times 4$ 离散电压矩阵，用于驱动液态金属通道产生特定拓扑形态。
+    \item \textbf{视觉传感器输出}：双目相机输出的全局高程矩阵 $H_{global}$ 及 RGB 视频流。
+    \item \textbf{智能体状态输出}：由视觉算法提取的智能体（生物替代物）全局坐标 $(x_t, y_t)$ 及方向向量。
+\end{itemize}
+
+\subsection{控制周期与同步策略}
+系统采用离散时间步（Discrete Time-step）闭环架构。单步控制周期由以下三段延迟串联构成：
+\begin{equation}
+    T_{total} = T_{vision} + T_{compute} + T_{actuation}
+\end{equation}
+其中 $T_{vision} \approx 33\,\text{ms}$（30\,fps 采样），$T_{compute} < 10\,\text{ms}$（轻量模型推演），$T_{actuation} \approx 800\,\text{ms}$（液态金属迟滞建立期，占主导）。受限于硬件物理响应，系统有效控制频率约为 1\,Hz。
+\end{samepage}
+
+\needspace{12\baselineskip}
+\section{软件设计：平台控制 API 封装}
+
+为屏蔽底层硬件的非线性和时间延迟，我们设计了核心中间件 \texttt{EmbodiedPlatform}。该类不再提供高频连续的电压接口，而是通过预设特征地形的哈希映射，实现低频离散的状态切换，确保数据采样的稳定性。
+
+\begin{lstlisting}[caption={EmbodiedPlatform 核心接口伪代码}, aboveskip=4pt, belowskip=4pt]
+class EmbodiedPlatform:
+    def __init__(self):
+        self.camera = DualCameraSystem()
+        self.hardware = LiquidMetalController()
+        # 预设4种稳定物理地形，屏蔽动态形变建立期的非线性
+        self.terrain_dict = {
+            0: "FLAT_VOLTAGE_MATRIX",
+            1: "LEFT_SLOPE_MATRIX",
+            2: "RIGHT_SLOPE_MATRIX",
+            3: "CENTER_BUMP_MATRIX"
+        }
+
+    def set_terrain(self, terrain_id):
+        # 执行瞬间切换，并提供阻塞等待直至物理形变稳定
+        voltage_matrix = self.terrain_dict[terrain_id]
+        self.hardware.send(voltage_matrix)
+        time.sleep(0.8) # 应对硬件迟滞
+
+    def get_synchronized_state(self):
+        # 返回严格时间对齐的: [全局高程, 智能体坐标]
+        pass
+\end{lstlisting}
+
+\needspace{14\baselineskip}
+\section{算法设计 1：视觉处理与特征提取}
+
+为了让训练数据符合“受限感知智能体（POMDP）”的客观规律，本系统最核心的算法是对全局环境进行“以智能体为中心的局部切片变换”。
+
+\begin{samepage}
+\subsection{智能体定位算法}
+利用全局恒定光源作为终点诱导，采用基于 HSV 色彩空间阈值分割与轮廓提取（OpenCV）算法，实时计算智能体质心坐标 $P_t = (x_t, y_t)$。
+\end{samepage}
+
+\begin{samepage}
+\subsection{局部环境感知切片算法（核心）}
+相较于将完整的 $4 \times 4$ 全局地形输入模型，系统通过坐标变换提取以智能体为中心的局部感受野。设全局高程图为 $H \in \mathbb{R}^{W \times H}$，感受野窗口大小为 $N \times N$，则 $t$ 时刻的局部环境矩阵 $S_{local}^t$ 定义为：
+
+\begin{equation}
+    S_{local}^t(i, j) = H(x_t - \frac{N}{2} + i,\; y_t - \frac{N}{2} + j)
+\end{equation}
+其中 $i, j \in [0, N-1]$。若切片超出全局边界，则采用零填充（Zero-padding）模拟边界空气墙。
+\end{samepage}
+
+\begin{samepage}
+\subsection{方向向量计算}
+基于时序坐标计算智能体当前朝向向量 $\vec{v}_t$ 与目标光源向量 $\vec{d}_{goal}$：
+\begin{equation}
+    \vec{v}_t = \frac{P_t - P_{t-k}}{\|P_t - P_{t-k}\|}, \qquad
+    \vec{d}_{goal} = \frac{P_{light} - P_t}{\|P_{light} - P_t\|}
+\end{equation}
+两者夹角的余弦值 $\cos\theta_t = \vec{v}_t \cdot \vec{d}_{goal}$ 可作为智能体趋光性强度的实时度量指标，用于后续数据筛选与异常帧剔除。
+\end{samepage}
+
+\needspace{14\baselineskip}
+\section{算法设计 2：微型预测模型（Pseudo-World Model）}
+
+本阶段不追求构建庞大的端到端模型，而是通过轻量级回归模型验证平台数据的高质量与物理对齐度。
+
+\begin{samepage}
+\subsection{数据集构造格式}
+系统流水线自动采集时序数据并打包。每一帧的特征向量（Feature Vector）$X_t$ 拼接了多模态信息：
+\begin{equation}
+    X_t = \Big[ \text{Flatten}(S_{local}^t),\; \vec{v}_t,\; \vec{d}_{goal} \Big]
+\end{equation}
+预测标签（Label）$Y_t$ 为智能体在 $t+\Delta t$ 时刻的真实位移向量：
+\begin{equation}
+    Y_t = P_{t+\Delta t} - P_t
+\end{equation}
+
+\subsection{预测算法选型与训练}
+拟采用多层感知机（MLP）或随机森林回归（Random Forest Regression）。训练目标为最小化均方误差：
+\begin{equation}
+    \mathcal{L} = \frac{1}{N} \sum_{i=1}^{N} \| \hat{Y}_i - Y_i \|^2
+\end{equation}
+轻量级模型可在少量验证数据（如录制 20 分钟交互视频）下快速收敛，用于拟合智能体在遇到局部地形隆起时的避障与寻路策略。
+\end{samepage}
+
+\needspace{14\baselineskip}
+\section{交互设计：Demo 可视化渲染逻辑}
+
+最终演示环节通过在二维视频流上叠加数据层，直观证明实体平台的系统有效性：
+\begin{enumerate}
+    \item \textbf{地形热力图层}：在主界面边缘提供画中画，使用伪彩色（ColorMap）实时渲染当前的局部高程矩阵 $S_{local}$。
+    \item \textbf{真实轨迹层}：在视频流原画上，基于历史坐标队列绘制连贯的绿色平滑曲线。
+    \item \textbf{智能推断层（高光设计）}：调用前述训练完毕的 MLP 模型，以前向传播速率（约 10Hz）在智能体头部实时渲染一根指向 $P_{t+1}$ 的\textbf{红色预测箭头}。
+\end{enumerate}
+
+通过肉眼观察物理地形突变时，预测红箭头与后续真实绿色轨迹的高度重合，即可完成“平台成功捕获物理世界交互规律”的闭环验证。
+
+\end{document}
