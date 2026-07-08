@@ -1,0 +1,25 @@
+{
+  "error": null,
+  "measured_z": [],
+  "name": "center_bump",
+  "notes": "Placeholder. Fill voltage with MATLAB optimized center-bump result before real preset test.",
+  "target_z": [],
+  "voltage": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.1,
+    0.1,
+    0.0,
+    0.0,
+    0.1,
+    0.1,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ]
+}
