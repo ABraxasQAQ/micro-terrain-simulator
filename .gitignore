@@ -42,3 +42,12 @@ Desktop.ini
 *.pt
 *.ckpt
 data/raw/
+
+# Document sources (only track compiled PDFs)
+*.md
+*.tex
+
+# Large binaries (OpenCV DLLs)
+*.dll
+*.exp
+*.lib
