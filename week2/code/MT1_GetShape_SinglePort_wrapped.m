@@ -1,4 +1,4 @@
-function Pos = GetShape_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage)
+function Pos = MT1_GetShape_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage)
 
 PortVoltages=zeros(PortNum,1);
 PortVoltages(PortId)=x(1);
@@ -11,10 +11,10 @@ end
 fclose(fid);
 
 if abs(x(1))<MaxVoltage
-    command=strcat("python SinglePort_wrapped.py");
+    command=strcat("python MT1_SinglePort_wrapped.py");
     status = system(command);
     if status ~= 0
-        error("SinglePort_wrapped.py failed with status %d", status);
+        error("MT1_SinglePort_wrapped.py failed with status %d", status);
     end
     Pos=load("AveragePos.txt");
 else

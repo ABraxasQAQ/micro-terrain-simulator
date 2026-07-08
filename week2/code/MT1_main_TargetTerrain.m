@@ -30,7 +30,7 @@ delete_if_exists("TargetTerrainResult.dat");
 
 myoptions = optimoptions(@patternsearch,'Display','iter','MaxFunEvals',30,'MaxIter',30);
 
-x = patternsearch(@(x) GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax,...
+x = patternsearch(@(x) MT1_GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax,...
                  TargetZ,Weights),x0,ACon,bCon,[],[],lb,ub,[],myoptions);
 
 fidout=fopen("TargetTerrainBestVoltage.dat",'w');

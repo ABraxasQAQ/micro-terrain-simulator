@@ -1,6 +1,6 @@
-function y = GetShapeDiff_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage,TargetPos,FeatureId)
+function y = MT1_GetShapeDiff_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage,TargetPos,FeatureId)
 
-Pos = GetShape_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage);
+Pos = MT1_GetShape_SinglePort_wrapped(x,PortId,PortNum,MaxVoltage);
 
 PosFeature=Pos(FeatureId,3);
 

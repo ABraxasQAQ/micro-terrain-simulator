@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import Optional, Sequence
 
-from terrain_presets import load_voltage_for_terrain
+from MT1_terrain_presets import load_voltage_for_terrain
 
 
 def export_voltage(terrain: str, output: str, membrane: Optional[str] = None) -> Path:

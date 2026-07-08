@@ -1,6 +1,6 @@
-function y = GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax,TargetZ,Weights)
+function y = MT1_GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax,TargetZ,Weights)
 
-Pos = GetShape_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax);
+Pos = MT1_GetShape_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax);
 
 MeasuredZ=Pos(:,3);
 TargetZ=TargetZ(:);

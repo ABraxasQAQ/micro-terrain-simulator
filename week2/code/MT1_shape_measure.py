@@ -5,7 +5,7 @@ This module keeps the old MATLAB/Python file protocol:
 MATLAB writes CurrentVoltage.dat -> Python measures -> Python writes AveragePos.txt
 
 It intentionally does not change opencv_wrapper or the C++ build.  The public
-entry point for MATLAB is SinglePort_wrapped.py.
+entry point for MATLAB is MT1_SinglePort_wrapped.py.
 """
 
 from __future__ import annotations

@@ -23,5 +23,5 @@ Example:
 Use:
 
 ```bash
-python apply_terrain.py center_bump --membrane membrane_01
+python MT1_apply_terrain.py center_bump --membrane membrane_01
 ```

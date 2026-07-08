@@ -8,8 +8,8 @@ from typing import Dict, List, Optional
 
 
 PORT_NUM = 16
-PRESETS_DIR = Path("presets")
-CALIBRATIONS_DIR = Path("calibrations")
+PRESETS_DIR = Path("MT1_presets")
+CALIBRATIONS_DIR = Path("MT1_calibrations")
 
 
 def ensure_dirs() -> None:

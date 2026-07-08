@@ -23,7 +23,7 @@ delete_if_exists("VoltageNow.dat");
 
 myoptions = optimoptions(@patternsearch,'Display','iter','MaxFunEvals',20,'MaxIter',20);
 
-x = patternsearch(@(x) GetShapeDiff_SinglePort_wrapped(x,PortId,PortNum,VoltageMax,...
+x = patternsearch(@(x) MT1_GetShapeDiff_SinglePort_wrapped(x,PortId,PortNum,VoltageMax,...
                  TargetPos,FeaturePointId),x0,ACon,bCon,[],[],lb,ub,[],myoptions);
 
 fidout=fopen("SinglePortWrappedResult.dat",'w');

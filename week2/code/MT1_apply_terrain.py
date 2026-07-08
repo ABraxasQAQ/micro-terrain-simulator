@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from terrain_presets import load_voltage_for_terrain, write_current_voltage
+from MT1_terrain_presets import load_voltage_for_terrain, write_current_voltage
 
 
 def apply_terrain(
@@ -23,7 +23,7 @@ def apply_terrain(
     print(f"wrote CurrentVoltage.dat for terrain={name} membrane={membrane_id or 'default'}")
 
     if measure:
-        cmd = [python_exe, "SinglePort_wrapped.py"]
+        cmd = [python_exe, "MT1_SinglePort_wrapped.py"]
         print("running:", " ".join(cmd))
         subprocess.check_call(cmd)
 
@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("terrain")
     parser.add_argument("--membrane", default=None)
     parser.add_argument("--no-measure", action="store_true", help="Only write CurrentVoltage.dat.")
-    parser.add_argument("--python", default=sys.executable, help="Python executable for SinglePort_wrapped.py.")
+    parser.add_argument("--python", default=sys.executable, help="Python executable for MT1_SinglePort_wrapped.py.")
     return parser
 
 

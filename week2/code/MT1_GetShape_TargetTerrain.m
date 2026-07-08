@@ -1,4 +1,4 @@
-function Pos = GetShape_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax)
+function Pos = MT1_GetShape_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax)
 
 PortVoltages=zeros(PortNum,1);
 for ii=1:length(ActivePortIds)
@@ -13,10 +13,10 @@ end
 fclose(fid);
 
 if sum(abs(PortVoltages))<VoltageMax
-    command=strcat("python SinglePort_wrapped.py");
+    command=strcat("python MT1_SinglePort_wrapped.py");
     status = system(command);
     if status ~= 0
-        error("SinglePort_wrapped.py failed with status %d", status);
+        error("MT1_SinglePort_wrapped.py failed with status %d", status);
     end
     Pos=load("AveragePos.txt");
 else
