@@ -41,6 +41,7 @@ Desktop.ini
 *.pth
 *.pt
 *.ckpt
+*.zip
 data/raw/
 
 # Document sources (only track compiled PDFs)
