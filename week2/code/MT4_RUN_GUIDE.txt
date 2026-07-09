@@ -1,0 +1,164 @@
+MT4 现场运行指导：当前阶段只做端口识别
+====================================
+
+当前目标：
+
+先不要做 MATLAB 优化。先完整确认：
+
+- 16 个监测点的编号和 x/y 方位。
+- 16 个端口分别主要影响哪个方位。
+- 哪些端口适合作为后续 MATLAB 优化的 ActivePortIds。
+
+也就是说，MT4 当前阶段只做到：
+
+baseline -> 全端口扫描 -> 端口方位分析表 -> 发给 AI/人工判断
+
+
+0. 运行位置
+-----------
+
+所有命令都在老师电脑项目的 week2/code 目录下运行。
+
+cmd 进入目录示例：
+
+cd /d E:\...\week2\code
+
+MATLAB 的 Current Folder 也要切到同一个 week2/code 目录。
+
+
+1. 确认监测点编号和 x/y 方位
+--------------------------
+
+先运行：
+
+python MT4_check_point_mapping.py --measure-flat
+
+它会做一次零电压测量，并打印：
+
+- 16 个点的 4x4 编号。
+- 每个点的 x/y/z。
+- x 小侧、x 大侧、y 小侧、y 大侧分别对应哪些点。
+- center 点是哪几个。
+
+当前代码默认：
+
+1   2   3   4
+5   6   7   8
+9   10  11  12
+13  14  15  16
+
+center 点：
+
+6, 7, 10, 11
+
+注意：
+
+x 小/x 大/y 小/y 大不等于 left/right/front/back。left/right/front/back 要根据现场相机视角命名。
+
+
+2. baseline 测量
+---------------
+
+命令：
+
+python MT4_response_scan.py baseline --repeats 5
+
+输出位置：
+
+MT4_runs/日期_baseline/
+
+重点检查：
+
+- 有 MT4_summary.jsonl。
+- 有 MT4_summary.csv。
+- 命令行每次显示 success=True。
+
+
+3. 全端口扫描
+-------------
+
+命令：
+
+python MT4_response_scan.py port-scan --ports 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 --levels 0 0.1 0.2 0.3
+
+输出位置：
+
+MT4_runs/日期_port_scan/
+
+说明：
+
+这一步会比较久，但只要成功一次，后续 bump 和 slope 都能基于同一张端口方位表做判断。
+
+
+4. 生成端口方位分析表
+-------------------
+
+把下面命令里的 xxxx_baseline 和 xxxx_port_scan 换成实际文件夹名：
+
+python MT4_analyze_port_mapping.py --baseline MT4_runs/xxxx_baseline/MT4_summary.jsonl --port-scan MT4_runs/xxxx_port_scan/MT4_summary.jsonl
+
+输出位置：
+
+MT4_outputs/port_mapping/
+
+会生成：
+
+- xxxx_MT4_port_mapping_summary.csv
+- xxxx_MT4_port_mapping_summary.json
+
+分析表会告诉我们：
+
+- 每个 port 对 center 的影响。
+- 每个 port 对 x 小侧 / x 大侧 的影响。
+- 每个 port 对 y 小侧 / y 大侧 的影响。
+- 哪些 port 是 center_up 候选。
+- 哪些 port 是某个方向斜坡候选。
+
+
+5. 需要发给我看的文件
+-------------------
+
+优先发：
+
+- MT4_outputs/port_mapping/xxxx_MT4_port_mapping_summary.csv
+
+如果方便，也发：
+
+- MT4_outputs/port_mapping/xxxx_MT4_port_mapping_summary.json
+
+如果我需要更细判断，再发原始文件：
+
+- MT4_runs/xxxx_baseline/MT4_summary.jsonl
+- MT4_runs/xxxx_port_scan/MT4_summary.jsonl
+
+
+6. 这一阶段的通过标准
+-------------------
+
+不是要求变形肉眼明显。
+
+只需要：
+
+- baseline 成功。
+- 16 个端口扫描都成功。
+- 端口方位分析表能生成。
+- 至少能看出几个端口对 center 或 x/y 某一侧有稳定响应。
+
+如果某张膜响应偏小，也可以接受。只要方向稳定，后续 MATLAB 优化可以组合多个端口。
+
+
+7. 下一阶段才做 MATLAB 优化
+-------------------------
+
+端口识别完成后，再进入下一阶段：
+
+- 选择 ActivePortIds。
+- 设置目标地形 TargetZ。
+- 用 MATLAB patternsearch 优化电压。
+- 保存最终 preset。
+
+目前先不要急着跑：
+
+MT4_main_center_bump_optimize
+
+等端口方位表确认后再改 ActivePortIds 和目标函数。

@@ -1,0 +1,173 @@
+MT5 阶段台账：当前数字编号和功能
+================================
+
+这个文件用于跟随项目迭代更新。每次我们调整主线时，优先更新这里，避免文件越来越乱。
+
+
+0. 老师原始项目
+--------------
+
+功能：
+
+- 原始相机/电路/优化代码。
+- 不主动改，不主动删。
+
+代表文件：
+
+- SinglePort.py
+- TestPython.py
+- TestPorts.py
+- FeatureSelection.py
+- opencv_wrapper.cp310-win_amd64.pyd
+- GetShape*.m
+- main_SinglePort*.m
+
+
+1. MT1：底层测量和 preset 应用
+----------------------------
+
+功能：
+
+- Python 读取 CurrentVoltage.dat。
+- 调用 opencv_wrapper。
+- 输出 AveragePos.txt 和 measure_log.json。
+- 应用已经优化好的 preset。
+
+代表文件：
+
+- MT1_shape_measure.py
+- MT1_SinglePort_wrapped.py
+- MT1_terrain_presets.py
+- MT1_apply_terrain.py
+- MT1_GetShape_TargetTerrain.m
+- MT1_GetShapeDiff_TargetTerrain.m
+
+状态：
+
+- 保留。
+- 作为 MT4/MT5 的底层接口。
+
+
+2. MT2：早期扫描测试
+-------------------
+
+功能：
+
+- 早期为了快速找 center_bump preset 做的扫描测试。
+
+状态：
+
+- 已废弃。
+- 已从当前主线删除。
+
+
+3. MT3：早期 slope/preset 计划
+-----------------------------
+
+功能：
+
+- 早期斜坡计划和文档。
+
+状态：
+
+- 已废弃。
+- 现在不再作为主线。
+
+
+4. MT4：端口识别
+----------------
+
+功能：
+
+- 确认 16 个监测点的 x/y 方位。
+- 做 baseline。
+- 做 16 端口全扫描。
+- 生成端口方位表。
+- 用端口方位表决定 MT5 的 ActivePortIds。
+
+代表文件：
+
+- MT4_check_point_mapping.py
+- MT4_response_scan.py
+- MT4_analyze_port_mapping.py
+- MT4_MAPPING_NOTES.txt
+- MT4_RUN_GUIDE.txt
+- MT4_WORKFLOW_README.txt
+- MT4_FILE_STRUCTURE.txt
+
+关键输出：
+
+- MT4_runs/日期_baseline/
+- MT4_runs/日期_port_scan/
+- MT4_outputs/port_mapping/
+
+当前状态：
+
+- 阶段 A 主线。
+- 已经拿到端口表后，就进入 MT5。
+
+
+5. MT5：基于端口表的 MATLAB 多地形优化
+------------------------------------
+
+功能：
+
+- 根据 MT4 端口方位表选择 ActivePortIds。
+- 根据目标地形设置 TargetZ。
+- MATLAB patternsearch 优化电压。
+- 保存最终 preset。
+- 管理多地形的相对位移目标模板。
+- 针对不同膜，把同一个目标地形重新优化成该膜可用的电压 preset。
+
+代表文件：
+
+- MT5_main_OptimizeTerrain.m
+- MT5_save_optimized_preset.py
+- MT5_STAGE_LEDGER.txt
+
+关键输出：
+
+- MT5_outputs/日期_地形名_optimize/
+- MT5_outputs/final_presets/
+- MT1_presets/地形名.json
+
+复用原则：
+
+- MT4 端口方位表描述的是电路端口与空间方向的关系。
+- 如果电路板方向、接线、相机坐标方向没有变，通常不用重新跑 MT4 全端口扫描。
+- 换膜时，MT4 端口方位表仍可作为初始依据；但 MT5 仍要为新膜重新优化电压。
+- 如果换了电路板方向、接线、相机方向，或怀疑硬件故障，再重跑 MT4。
+- MT5 的目标位移模板应尽量跨膜复用，例如 center_bump_strong = 中心点相对 baseline +0.6 mm。
+- 每张膜最终保存自己的优化电压 preset。
+
+当前第一目标：
+
+- center_bump_strong
+
+当前建议初始配置：
+
+- TerrainName = center_bump_strong
+- TargetMode = center_bump
+- ActivePortIds = [12 14 11 13]
+- x0 = [0.15; 0.10; 0.15; 0.10]
+- TargetDelta = 1.0
+
+后续扩展目标：
+
+- center_bump_strong
+- x_large_up / x_small_up
+- y_large_up / y_small_up
+- 再根据现场方向命名为 left/right/front/back
+
+
+下一步操作
+----------
+
+1. 读取 MT4 端口表，确认 ActivePortIds。
+2. 修改 MT5_main_OptimizeTerrain.m 顶部配置。
+3. 在 MATLAB 里运行：
+
+MT5_main_OptimizeTerrain
+
+4. 优化结束后运行命令行打印的 MT5_save_optimized_preset.py 命令。
+5. 用 MT1_apply_terrain.py 一键应用 preset。

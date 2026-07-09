@@ -1,0 +1,108 @@
+MT5 运行指导：基于端口表的 MATLAB 优化
+=====================================
+
+前提：
+
+MT4 已经完成端口识别，并生成端口方位表：
+
+MT4_outputs/port_mapping/xxxx_MT4_port_mapping_summary.csv
+
+一般情况下：
+
+- 不换电路板方向、不改接线、不改相机坐标方向，就不用每次重跑 MT4 全端口扫描。
+- 换膜时可以复用 MT4 端口表，但要重新跑 MT5 优化，得到这张膜自己的电压 preset。
+- 如果怀疑接线、端口、相机或识别点出故障，再回到 MT4 做检查。
+
+
+1. 修改 MT5 配置
+----------------
+
+打开：
+
+MT5_main_OptimizeTerrain.m
+
+重点只改顶部配置区：
+
+TerrainName="center_bump_strong";
+TargetMode="center_bump";
+ActivePortIds=[12 14 11 13];
+x0=[0.15; 0.10; 0.15; 0.10];
+TargetDelta=1.0;
+
+说明：
+
+- ActivePortIds 来自 MT4 端口方位表。
+- x0 是初始电压。
+- TargetDelta 是目标相对 baseline 的高度变化。
+- TargetMode 和 TargetDelta 是可跨膜复用的地形位移模板。
+- MATLAB 会在每张膜当前 baseline 上构造 TargetZ，所以不依赖绝对高度。
+
+当前 center_bump_strong 先试 1.0 mm，是偏明显的目标；如果优化误差很大或膜回弹不好，再降到 0.6 mm。
+四端口初值总和是 0.50，刚好满足 MaxTotalAbsVoltage=0.50 的保守限制。
+
+
+2. MATLAB 运行优化
+-----------------
+
+在 MATLAB 命令行运行：
+
+MT5_main_OptimizeTerrain
+
+运行中会反复调用 Python 和相机测量，所以会比较久。
+
+
+3. 查看优化输出
+--------------
+
+输出位置：
+
+MT5_outputs/日期_地形名_optimize/
+
+关键文件：
+
+- MT5_optimization_summary.txt
+- TargetTerrainBestVoltage.dat
+- ErrorNow.dat
+- VoltageNow.dat
+- TargetTerrainResult.dat
+- AveragePos.txt
+- measure_log.json
+- MT5_optimization.mat
+
+
+4. 保存最终 preset
+-----------------
+
+MATLAB 运行结束后会打印保存命令，类似：
+
+python MT5_save_optimized_preset.py center_bump_strong --active-ports 12 14 --voltage-file MT5_outputs/xxxx_center_bump_strong_optimize/TargetTerrainBestVoltage.dat
+
+运行它。
+
+最终 preset 会保存到：
+
+MT1_presets/center_bump_strong.json
+
+
+5. 一键应用 preset
+-----------------
+
+python MT1_apply_terrain.py center_bump_strong
+
+检查：
+
+- measure_log.json 里 success=true
+- AveragePos.txt 的地形变化方向符合目标
+
+
+6. 需要回传给我的文件
+-------------------
+
+如果优化效果不好，优先回传：
+
+- MT5_outputs/日期_地形名_optimize/MT5_optimization_summary.txt
+- MT5_outputs/日期_地形名_optimize/ErrorNow.dat
+- MT5_outputs/日期_地形名_optimize/TargetTerrainResult.dat
+- MT1_presets/地形名.json
+- 一键应用后的 AveragePos.txt
+- 一键应用后的 measure_log.json
