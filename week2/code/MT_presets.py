@@ -8,8 +8,9 @@ from typing import Dict, List, Optional
 
 
 PORT_NUM = 16
-PRESETS_DIR = Path("MT1_presets")
-CALIBRATIONS_DIR = Path("MT1_calibrations")
+ROOT_DIR = Path(__file__).resolve().parent
+PRESETS_DIR = ROOT_DIR / "MT_presets"
+CALIBRATIONS_DIR = ROOT_DIR / "MT_calibrations"
 
 
 def ensure_dirs() -> None:
@@ -79,6 +80,7 @@ def create_preset_payload(
     target_z: Optional[List[float]] = None,
     measured_z: Optional[List[float]] = None,
     error: Optional[float] = None,
+    max_total_abs_voltage: Optional[float] = None,
     notes: str = "",
 ) -> dict:
     payload = {
@@ -87,6 +89,7 @@ def create_preset_payload(
         "target_z": target_z or [],
         "measured_z": measured_z or [],
         "error": error,
+        "max_total_abs_voltage": max_total_abs_voltage,
         "notes": notes,
     }
     return payload
@@ -98,10 +101,19 @@ def save_preset(
     target_z: Optional[List[float]] = None,
     measured_z: Optional[List[float]] = None,
     error: Optional[float] = None,
+    max_total_abs_voltage: Optional[float] = None,
     notes: str = "",
 ) -> Path:
     ensure_dirs()
-    payload = create_preset_payload(name, voltage, target_z, measured_z, error, notes)
+    payload = create_preset_payload(
+        name,
+        voltage,
+        target_z,
+        measured_z,
+        error,
+        max_total_abs_voltage,
+        notes,
+    )
     path = preset_path(name)
     save_json(path, payload)
     return path

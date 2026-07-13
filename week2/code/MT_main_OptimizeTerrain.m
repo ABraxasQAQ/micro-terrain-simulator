@@ -1,21 +1,25 @@
 clear all
 clc
 
-% MT5: MATLAB optimization stage.
-% Edit this config block after reading the MT4 port mapping table.
+ThisDir=fileparts(mfilename('fullpath'));
+addpath(ThisDir);
+cd(ThisDir);
 
-TerrainName="center_bump_strong";
-TargetMode="center_bump";
+% MT: MATLAB optimization stage.
+% Edit this config block after reading the MT port spatial map.
+
+TerrainName="center_bump_rim_down_strong";
+TargetMode="center_bump_rim_down";
 
 N=4;
 PortNum=N*N;
 
-% ActivePortIds should come from MT4_outputs/port_mapping.
-% Current center_bump candidate from the latest table:
-% ports 12/14 are stable center-up candidates; ports 11/13 add extra shape
-% authority for a stronger cross-like bump.
-ActivePortIds=[12 14 11 13];
-x0=[0.15; 0.10; 0.15; 0.10];
+% ActivePortIds should come from MT_outputs/port_spatial_map.
+% Current center-bump candidate:
+% center-up ports = 14/12/11/13
+% rim-shaping ports = 9/16/10/7
+ActivePortIds=[14 12 11 13 9 16 10 7];
+x0=[0.25; 0.25; 0.15; 0.15; 0.08; 0.08; 0.06; 0.06];
 
 CenterIds=[6 7 10 11];
 XSmallIds=[1 2 3 4];
@@ -24,9 +28,10 @@ YSmallIds=[1 5 9 13];
 YLargeIds=[4 8 12 16];
 
 TargetDelta=1.0;
-VoltageMax=0.51;
-MaxTotalAbsVoltage=0.50;
-UpperVoltage=0.35;
+RimDownDelta=0.5;
+VoltageMax=2.05;
+MaxTotalAbsVoltage=2.00;
+UpperVoltage=0.80;
 
 ActivePortNum=length(ActivePortIds);
 if length(x0) ~= ActivePortNum
@@ -39,10 +44,10 @@ ACon=ones(1,ActivePortNum);
 bCon=MaxTotalAbsVoltage;
 
 % Measure this run's flat baseline.
-BaselinePos = MT1_GetShape_TargetTerrain(zeros(ActivePortNum,1),ActivePortIds,PortNum,VoltageMax);
+BaselinePos = MT_GetShape_TargetTerrain(zeros(ActivePortNum,1),ActivePortIds,PortNum,VoltageMax);
 BaselineZ = BaselinePos(:,3);
 
-[TargetZ,Weights] = build_target(TargetMode,BaselineZ,TargetDelta, ...
+[TargetZ,Weights] = build_target(TargetMode,BaselineZ,TargetDelta,RimDownDelta, ...
     CenterIds,XSmallIds,XLargeIds,YSmallIds,YLargeIds);
 
 delete_if_exists("ErrorNow.dat");
@@ -56,7 +61,7 @@ myoptions = optimoptions(@patternsearch, ...
     'MaxIter',45, ...
     'MeshTolerance',0.02);
 
-x = patternsearch(@(x) MT1_GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax, ...
+x = patternsearch(@(x) MT_GetShapeDiff_TargetTerrain(x,ActivePortIds,PortNum,VoltageMax, ...
                  TargetZ,Weights),x0,ACon,bCon,[],[],lb,ub,[],myoptions);
 
 fidout=fopen("TargetTerrainBestVoltage.dat",'w');
@@ -64,10 +69,11 @@ fprintf(fidout,'%25.15f',x);
 fprintf(fidout,'\r\n');
 fclose(fidout);
 
-RunDir = make_run_dir("MT5_outputs",strcat(TerrainName,"_optimize"));
-save(fullfile(RunDir,"MT5_optimization.mat"), ...
+RunDir = make_run_dir("MT_outputs",strcat(TerrainName,"_optimize"));
+save(fullfile(RunDir,"MT_optimization.mat"), ...
     "TerrainName","TargetMode","TargetZ","Weights","ActivePortIds", ...
-    "x","x0","BaselineZ","TargetDelta","VoltageMax","MaxTotalAbsVoltage","UpperVoltage");
+    "x","x0","BaselineZ","TargetDelta","RimDownDelta", ...
+    "VoltageMax","MaxTotalAbsVoltage","UpperVoltage");
 
 copy_if_exists("TargetTerrainBestVoltage.dat",RunDir);
 copy_if_exists("ErrorNow.dat",RunDir);
@@ -77,16 +83,17 @@ copy_if_exists("AveragePos.txt",RunDir);
 copy_if_exists("measure_log.json",RunDir);
 copy_if_exists("CurrentVoltage.dat",RunDir);
 
-write_summary(RunDir,TerrainName,TargetMode,ActivePortIds,x,x0,TargetDelta, ...
+write_summary(RunDir,TerrainName,TargetMode,ActivePortIds,x,x0,TargetDelta,RimDownDelta, ...
     BaselineZ,TargetZ,Weights,VoltageMax,MaxTotalAbsVoltage,UpperVoltage);
 
-fprintf('MT5 optimization outputs archived to: %s\n',RunDir);
+fprintf('MT optimization outputs archived to: %s\n',RunDir);
 fprintf('Save preset with:\n');
-fprintf('python MT5_save_optimized_preset.py %s --active-ports ',TerrainName);
+SaveScript=fullfile(ThisDir,"MT_save_preset.py");
+fprintf('python "%s" %s --active-ports ',SaveScript,TerrainName);
 fprintf('%d ',ActivePortIds);
 fprintf('--voltage-file "%s"\n',fullfile(RunDir,"TargetTerrainBestVoltage.dat"));
 
-function [TargetZ,Weights] = build_target(TargetMode,BaselineZ,TargetDelta, ...
+function [TargetZ,Weights] = build_target(TargetMode,BaselineZ,TargetDelta,RimDownDelta, ...
     CenterIds,XSmallIds,XLargeIds,YSmallIds,YLargeIds)
     TargetZ=BaselineZ;
     Weights=0.5*ones(length(BaselineZ),1);
@@ -94,6 +101,12 @@ function [TargetZ,Weights] = build_target(TargetMode,BaselineZ,TargetDelta, ...
     if TargetMode=="center_bump"
         TargetZ(CenterIds)=BaselineZ(CenterIds)+TargetDelta;
         Weights(CenterIds)=3.0;
+    elseif TargetMode=="center_bump_rim_down"
+        RimIds=setdiff(1:length(BaselineZ),CenterIds);
+        TargetZ(CenterIds)=BaselineZ(CenterIds)+TargetDelta;
+        TargetZ(RimIds)=BaselineZ(RimIds)-RimDownDelta;
+        Weights(CenterIds)=3.0;
+        Weights(RimIds)=1.2;
     elseif TargetMode=="x_large_up"
         TargetZ(XLargeIds)=BaselineZ(XLargeIds)+TargetDelta;
         TargetZ(XSmallIds)=BaselineZ(XSmallIds)-TargetDelta;
@@ -142,9 +155,9 @@ function copy_if_exists(filename,run_dir)
     end
 end
 
-function write_summary(RunDir,TerrainName,TargetMode,ActivePortIds,x,x0,TargetDelta, ...
+function write_summary(RunDir,TerrainName,TargetMode,ActivePortIds,x,x0,TargetDelta,RimDownDelta, ...
     BaselineZ,TargetZ,Weights,VoltageMax,MaxTotalAbsVoltage,UpperVoltage)
-    fidout=fopen(fullfile(RunDir,"MT5_optimization_summary.txt"),'w');
+    fidout=fopen(fullfile(RunDir,"MT_optimization_summary.txt"),'w');
 fprintf(fidout,'terrain_name=%s\r\n',char(TerrainName));
 fprintf(fidout,'target_mode=%s\r\n',char(TargetMode));
     fprintf(fidout,'active_ports=');
@@ -157,6 +170,7 @@ fprintf(fidout,'target_mode=%s\r\n',char(TargetMode));
     fprintf(fidout,'%25.15f ',x);
     fprintf(fidout,'\r\n');
     fprintf(fidout,'target_delta=%25.15f\r\n',TargetDelta);
+    fprintf(fidout,'rim_down_delta=%25.15f\r\n',RimDownDelta);
     fprintf(fidout,'voltage_max=%25.15f\r\n',VoltageMax);
     fprintf(fidout,'max_total_abs_voltage=%25.15f\r\n',MaxTotalAbsVoltage);
     fprintf(fidout,'upper_voltage=%25.15f\r\n',UpperVoltage);

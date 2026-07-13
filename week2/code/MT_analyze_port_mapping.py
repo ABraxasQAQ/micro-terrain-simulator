@@ -1,12 +1,12 @@
-"""Analyze port-to-terrain direction from MT4 response scans.
+"""Analyze port-to-terrain direction from MT response scans.
 
 Input:
-  - baseline MT4_summary.jsonl
-  - port-scan MT4_summary.jsonl
+  - baseline MT_summary.jsonl
+  - port-scan MT_summary.jsonl
 
 Output:
-  - MT4_outputs/port_mapping/MT4_port_mapping_summary.csv
-  - MT4_outputs/port_mapping/MT4_port_mapping_summary.json
+  - MT_outputs/port_mapping/MT_port_mapping_summary.csv
+  - MT_outputs/port_mapping/MT_port_mapping_summary.json
 
 This does not know the physical electrode layout by itself.  It maps each port
 to measured coordinate-side response: x-small, x-large, y-small, y-large, center.
@@ -159,8 +159,8 @@ def write_outputs(report: dict, output_dir: str | Path) -> None:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    json_path = output_dir / f"{stamp}_MT4_port_mapping_summary.json"
-    csv_path = output_dir / f"{stamp}_MT4_port_mapping_summary.csv"
+    json_path = output_dir / f"{stamp}_MT_port_mapping_summary.json"
+    csv_path = output_dir / f"{stamp}_MT_port_mapping_summary.csv"
 
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -207,10 +207,10 @@ def print_recommendations(report: dict) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Analyze MT4 port direction mapping.")
-    parser.add_argument("--baseline", required=True, help="MT4 baseline summary jsonl")
-    parser.add_argument("--port-scan", required=True, help="MT4 port-scan summary jsonl")
-    parser.add_argument("--output-dir", default="MT4_outputs/port_mapping")
+    parser = argparse.ArgumentParser(description="Analyze MT port direction mapping.")
+    parser.add_argument("--baseline", required=True, help="MT baseline summary jsonl")
+    parser.add_argument("--port-scan", required=True, help="MT port-scan summary jsonl")
+    parser.add_argument("--output-dir", default="MT_outputs/port_mapping")
     args = parser.parse_args(argv)
 
     report = analyze(args.baseline, args.port_scan)

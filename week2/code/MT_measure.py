@@ -5,7 +5,7 @@ This module keeps the old MATLAB/Python file protocol:
 MATLAB writes CurrentVoltage.dat -> Python measures -> Python writes AveragePos.txt
 
 It intentionally does not change opencv_wrapper or the C++ build.  The public
-entry point for MATLAB is MT1_SinglePort_wrapped.py.
+entry point for MATLAB is MT_single_port.py.
 """
 
 from __future__ import annotations
@@ -20,6 +20,10 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
+
+from MT_runtime import ensure_project_root
+
+ensure_project_root()
 
 POINT_GRID_N = 4
 DEFAULT_PORT_NUM = 16
@@ -122,7 +126,7 @@ def load_voltage_from_matlab(path: str | Path = "CurrentVoltage.dat") -> Voltage
 
 def validate_voltage_program(
     program: VoltageProgram,
-    max_total_abs_voltage: float = DEFAULT_MAX_TOTAL_ABS_VOLTAGE,
+    max_total_abs_voltage: Optional[float] = None,
 ) -> None:
     for idx, voltage_row in enumerate(program.voltages):
         total = sum(abs(float(v)) for v in voltage_row)
@@ -176,6 +180,10 @@ def run_dynamic_actuation(
 
 def read_result_path(path: str | Path = "ResultPath.dat") -> Path:
     path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} was not created after DynamicActuation; cwd={Path.cwd()}"
+        )
     with path.open("r", encoding="utf-8") as handle:
         result_path = handle.readline().strip()
     if not result_path:
@@ -285,6 +293,8 @@ def run_once_from_current_voltage(
     }
 
     try:
+        if max_total_abs_voltage is None:
+            max_total_abs_voltage = DEFAULT_MAX_TOTAL_ABS_VOLTAGE
         program = load_voltage_from_matlab(current_voltage_path)
         validate_voltage_program(program, max_total_abs_voltage=max_total_abs_voltage)
         write_port_voltage_schedule(program)
@@ -342,7 +352,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--average-pos", default="AveragePos.txt")
     parser.add_argument("--log", default="measure_log.json")
     parser.add_argument("--skip-frames", type=int, default=DEFAULT_SKIP_FRAMES)
-    parser.add_argument("--max-total-abs-voltage", type=float, default=DEFAULT_MAX_TOTAL_ABS_VOLTAGE)
+    parser.add_argument("--max-total-abs-voltage", type=float, default=None)
     parser.add_argument(
         "--mock-average-pos",
         default=None,

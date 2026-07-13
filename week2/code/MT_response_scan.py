@@ -1,4 +1,4 @@
-"""MT4 response scan helper.
+"""MT response scan helper.
 
 This is not the final controller.  It only measures baseline and single-port
 responses so we can choose active ports, initial voltages, and MATLAB bounds.
@@ -14,13 +14,16 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from MT1_shape_measure import load_average_pos, run_once_from_current_voltage
-from MT1_terrain_presets import write_current_voltage
+from MT_runtime import ensure_project_root
+from MT_measure import load_average_pos, run_once_from_current_voltage
+from MT_presets import write_current_voltage
+
+ensure_project_root()
 
 
 PORT_NUM = 16
-SUMMARY_JSONL = "MT4_summary.jsonl"
-SUMMARY_CSV = "MT4_summary.csv"
+SUMMARY_JSONL = "MT_summary.jsonl"
+SUMMARY_CSV = "MT_summary.csv"
 
 
 def now_id() -> str:
@@ -146,7 +149,7 @@ def save_case(
     ]:
         copy_if_exists(filename, case_dir)
 
-    with (case_dir / "MT4_case_meta.json").open("w", encoding="utf-8") as handle:
+    with (case_dir / "MT_case_meta.json").open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
 
     append_jsonl(session_dir / SUMMARY_JSONL, payload)
@@ -197,11 +200,11 @@ def run_port_scan(args: argparse.Namespace) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="MT4 baseline and port response scan.")
+    parser = argparse.ArgumentParser(description="MT baseline and port response scan.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_common(subparser: argparse.ArgumentParser) -> None:
-        subparser.add_argument("--output-root", default="MT4_runs")
+        subparser.add_argument("--output-root", default="MT_runs")
         subparser.add_argument("--skip-frames", type=int, default=500)
         subparser.add_argument("--max-total-abs-voltage", type=float, default=0.51)
         subparser.add_argument("--mock-average-pos", default=None)

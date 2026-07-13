@@ -1,0 +1,106 @@
+MT deployment guide
+===================
+
+Goal
+----
+Do not keep an MT/ subfolder.
+Put all MT_*.py and MT_*.m files directly in the teacher project root folder.
+
+Teacher project root means the folder that already contains:
+- SinglePort.py
+- TestPython.py
+- opencv_wrapper.cp310-win_amd64.pyd
+- CurrentVoltage.dat
+
+
+Files to add or replace
+-----------------------
+Copy these files into the teacher project root:
+
+- MT_analyze_port_mapping.py
+- MT_apply_preset.py
+- MT_build_port_spatial_map.py
+- MT_GetShapeDiff_TargetTerrain.m
+- MT_GetShape_TargetTerrain.m
+- MT_LEDGER.txt
+- MT_main_OptimizeTerrain.m
+- MT_measure.py
+- MT_presets.py
+- MT_quick_probe.py
+- MT_response_scan.py
+- MT_runtime.py
+- MT_save_preset.py
+- MT_single_port.py
+- MT_DEPLOY_GUIDE.txt
+
+
+Preset location
+---------------
+Copy the useful center bump preset JSON to:
+
+- MT_presets/center_bump.json
+
+So the final teacher project should contain:
+
+- MT_presets/center_bump.json
+
+If you later create more useful terrain presets, put them in the same MT_presets/ folder.
+
+
+Files/folders to remove from the teacher project
+-----------------------------------------------
+Remove these old experiment versions if they exist:
+
+- MT/                         old subfolder, no longer used
+- MT1_*.py
+- MT1_*.m
+- MT4_*.py
+- MT4_*.txt
+- MT5_*.py
+- MT5_*.m
+- MT5_*.txt
+- MT1_presets/
+- MT1_calibrations/
+- MT5_outputs/
+
+Keep the teacher original hardware files:
+
+- SinglePort.py
+- SinglePort_Dynamics.py
+- TestPython.py
+- TestPorts.py
+- FeatureSelection.py
+- opencv_wrapper.cp310-win_amd64.pyd
+- OpenCV DLL files
+
+
+Run commands
+------------
+Apply the center bump preset:
+
+python MT_apply_preset.py center_bump
+
+Quick probe:
+
+python MT_quick_probe.py
+
+MATLAB optimization:
+
+run("MT_main_OptimizeTerrain.m")
+
+
+Path rule
+---------
+Hardware runtime files stay in the teacher project root:
+
+- CurrentVoltage.dat
+- AveragePos.txt
+- measure_log.json
+- ResultPath.dat
+
+MT-managed files stay in root-level MT folders:
+
+- MT_presets/
+- MT_outputs/
+- MT_runs/
+- MT_calibrations/

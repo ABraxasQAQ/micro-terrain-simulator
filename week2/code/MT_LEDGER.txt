@@ -1,0 +1,84 @@
+MT 操作记录和路径规则
+=====================
+
+当前主线
+--------
+不再使用 MT/ 子文件夹。
+所有 MT 代码文件都直接放在老师项目根目录，并且文件名都以 MT_ 开头。
+
+老师项目根目录指包含这些文件的文件夹：
+- SinglePort.py
+- TestPython.py
+- opencv_wrapper.cp310-win_amd64.pyd
+- CurrentVoltage.dat
+
+
+路径规则
+--------
+硬件运行文件留在老师项目根目录：
+- CurrentVoltage.dat
+- AveragePos.txt
+- measure_log.json
+- ResultPath.dat
+
+MT 管理文件留在根目录下的 MT_* 文件夹：
+- MT_presets/
+- MT_outputs/
+- MT_runs/
+- MT_calibrations/
+
+
+有用 preset
+-----------
+当前只保留中心突起 preset：
+- MT_presets/center_bump.json
+
+运行：
+- python MT_apply_preset.py center_bump
+
+
+快速测试
+--------
+运行：
+- python MT_quick_probe.py
+
+用途：
+- 快速测试当前膜在较大电压下的实际形变幅度。
+- 结果进入 MT_outputs/quick_tests/。
+
+
+端口扫描
+--------
+运行 baseline：
+- python MT_response_scan.py baseline
+
+运行端口扫描：
+- python MT_response_scan.py port-scan --ports 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 --levels 0 0.1 0.2 0.3
+
+结果进入：
+- MT_runs/
+
+
+MATLAB 优化
+-----------
+在 MATLAB 命令行运行：
+- run("MT_main_OptimizeTerrain.m")
+
+优化结果进入：
+- MT_outputs/
+
+保存优化后的 preset：
+- python MT_save_preset.py 地形名 --active-ports ... --voltage-file "MT_outputs/某次优化/TargetTerrainBestVoltage.dat"
+
+
+已删除的旧主线
+--------------
+旧的 MT1/MT4/MT5 实验代码已经被新的 MT_ 主线替代。
+老师项目中可以删除：
+- MT/
+- MT1_*.py, MT1_*.m
+- MT4_*.py, MT4_*.txt
+- MT5_*.py, MT5_*.m, MT5_*.txt
+- MT1_presets/
+- MT1_calibrations/
+- MT5_outputs/
