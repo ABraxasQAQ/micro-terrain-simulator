@@ -1,0 +1,191 @@
+================================================================================
+               微地形项目 · 数据格式与数据密度速览
+                      (week4 / 数据处理参考)
+================================================================================
+
+示例文件来源:
+  week3/MT_midterm_report/assets/selected_track_processed_example.csv
+  week3/MT_midterm_report/assets/selected_camera_example.json
+  (该 CSV 是从真实实验会话 session_20260716_102527 中抽取出的一段)
+
+--------------------------------------------------------------------------------
+1. 数据总览 (Data Density)
+--------------------------------------------------------------------------------
+- 总行数 (含未检出帧) ............. 583 行
+- 时间戳范围 (time_s) ............ 0.00 s  ~  29.10 s
+- 总时长 ........................ 29.1 秒
+- 采样间隔 dt ................... 0.05 s  (恒定，无丢步)
+- 等价采样率 .................... 20 Hz
+- 帧号范围 (frame) .............. 000201 ~ 006021  (步长 10，对应 0.05 s)
+
+帧分类计数:
+  - found = true (成功锁定蚂蚁) .. 579 行  (99.3%)
+      其中 observed  (真实检出) .. 146 行  (25.0%)
+      其中 interpolated (插值补全)  433 行  (74.4%)
+  - dropped_by_binning (丢弃) ....   4 行  ( 0.7%)
+
+→ 含义: 原始检测只有约 1/4 的帧真实看到蚂蚁，其余 3/4 通过
+  时间插值补齐，使输出保持 20 Hz 等间隔。这对"速度/转角"
+  类统计非常重要——必须区分 observed 与 interpolated，
+  否则会把插值平滑效应误判为真实运动特征。
+
+空间范围 (像素，仅 found 帧):
+  - x ∈ [906.14, 1392.46]
+  - y ∈ [461.41, 911.05]
+
+地形/相位分布 (本段示例):
+  - terrain:        right_down_corner (380 行)  |  flat (203 行)
+  - terrain_state:  terrain_steady   (380 行)  |  flat_steady (203 行)
+  - phase:          cycle1_right_down_corner  /  cycle1_after_right_down_corner
+  - camera:         1 (单相机)
+
+--------------------------------------------------------------------------------
+2. 列定义 (27 列 CSV 字段表)
+--------------------------------------------------------------------------------
+索引  字段名              类型      说明
+----  ------------------  --------  ----------------------------------------
+ 1    timestamp_iso       字符串    ISO8601 时间戳 (带 +08:00 时区)
+ 2    terrain             枚举      地形类型 (right_down_corner / flat ...)
+ 3    terrain_state       枚举      地形稳态 (terrain_steady / flat_steady ...)
+ 4    phase               字符串    实验阶段 (cycleN_<corner_name>)
+ 5    camera              整数      相机编号 (1)
+ 6    frame               字符串    6 位帧号字符串，如 "000201"，步长 10
+ 7    time_s              浮点      相对起始时间，单位秒 (dt=0.05)
+ 8    found               布尔      本帧是否成功定位蚂蚁
+ 9    x                   浮点      蚂蚁质心 x (像素)
+10    y                   浮点      蚂蚁质心 y (像素)
+11    u                   浮点      归一化方向向量 x 分量
+12    v                   浮点      归一化方向向量 y 分量
+13    area               浮点      蚂蚁轮廓面积 (像素²)，仅 observed 有值
+14    bbox_x             浮点      包围框左上 x
+15    bbox_y             浮点      包围框左上 y
+16    bbox_w             浮点      包围框宽
+17    bbox_h             浮点      包围框高
+18    score              浮点      检测置信度
+19    body_axis_angle    浮点      身体主轴角度 (度)
+20    axis_ratio         浮点      包围框长宽比 (身体细长度)
+21    motion_angle       浮点      运动方向角 (度)
+22    head_angle         浮点      头部朝向角 (度)
+23    angle_confidence   枚举      角度置信度 (high / interpolated / ...)
+24    original_time_s    浮点      原始(未对齐)时间戳
+25    interpolated       布尔      本帧是否由插值产生
+26    track_quality      枚举      轨迹质量标签
+                                   - observed        真实检测
+                                   - interpolated   插值补全
+                                   - dropped_by_binning  丢弃
+27    smoothed           布尔      坐标是否经过平滑
+
+--------------------------------------------------------------------------------
+3. 一行真实数据示例 (observed 帧)
+--------------------------------------------------------------------------------
+timestamp_iso      : 2026-07-16T10:25:25.115+08:00
+terrain            : right_down_corner
+terrain_state      : terrain_steady
+phase              : cycle1_right_down_corner
+camera             : 1
+frame              : 000221
+time_s             : 0.100
+found              : True
+x, y               : 1335.56, 867.84
+u, v               : 0.862, 0.835
+area               : 261.0
+bbox               : (1313, 868, 24, 27)
+score              : 93.44
+body_axis_angle    : 130.72
+axis_ratio         : 2.779
+motion_angle       : 299.78
+head_angle         : 310.72
+angle_confidence   : high
+original_time_s    : 1.10
+interpolated       : False
+track_quality      : observed
+smoothed           : True
+
+→ 这一行对应 stat_guidance.md 中的输入 "[t, x, y]"，
+  再用 (u,v) / motion_angle 直接拿到方向，无需再算。
+
+--------------------------------------------------------------------------------
+4. 一行插值帧示例 (interpolated)
+--------------------------------------------------------------------------------
+frame              : 000231
+time_s             : 0.150
+found              : true
+x, y               : 1341.24, 861.14
+area / bbox / score: (空)        ← 插值帧没有真实轮廓信息
+interpolated       : True
+track_quality      : interpolated
+angle_confidence   : interpolated
+
+→ 注意: 插值帧只有 x,y 被线性补齐，面积/bbox/score 等为空。
+  做"转弯角 Δθ"统计时建议只用 observed + 高置信度帧，
+  避免插值把弯角抹平。
+
+--------------------------------------------------------------------------------
+5. 一个被丢弃的帧示例 (dropped_by_binning)
+--------------------------------------------------------------------------------
+frame              : 000201
+time_s             : 0.000
+found              : false
+x, y ... score ... : (全空)
+interpolated       : False
+track_quality      : dropped_by_binning
+
+→ 在 binning 阶段因质量过低被剔除，不参与轨迹，
+  但仍占一行以保持时间轴完整 (便于按 time_s 直接索引)。
+
+--------------------------------------------------------------------------------
+6. 多相机选择 JSON (selected_camera_example.json)
+--------------------------------------------------------------------------------
+实验中每个 session 会先用多相机并行录制，再用打分函数
+自动选出"最佳相机"用于后续统计。打分字段:
+
+  {
+    "selected_camera": "1",
+    "scores": {
+      "<camera_id>": {
+        "file":               "MT_outputs/.../cameraN_track_processed.csv",
+        "score":              3.082,        # 综合打分 (越小越好)
+        "rows":               583.0,         # 总行数
+        "found_ratio":        0.9931,       # 检出率
+        "observed_ratio":     0.2504,       # 真实检测占比
+        "interpolated_ratio": 0.7427,       # 插值占比
+        "bad_ratio":          0.0069,       # 异常/丢弃占比
+        "speed_std_mm_s":     8.031,        # 速度标准差 (mm/s)
+        "speed_p95_mm_s":     27.954        # 95 分位速度 (mm/s)
+      },
+      ...
+    }
+  }
+
+关键打分项解读:
+  - found_ratio  / observed_ratio  越高 → 轨迹越可信
+  - interpolated_ratio           越低 → 真实信息越多
+  - bad_ratio                    越低 → 越干净
+  - speed_std_mm_s / speed_p95   衡量运动剧烈程度，
+    过高可能意味着抖动噪点；过低可能意味着蚂蚁几乎不动
+
+--------------------------------------------------------------------------------
+7. 与 stat_guidance.md 的对接建议
+--------------------------------------------------------------------------------
+输入 "[t, x, y]"  →  直接用 time_s, x, y 三列
+                    (x,y 仅在 found=true 时有效)
+
+速度 v           →  由相邻 observed 帧的 (x,y) 差分 / dt 得到
+                    dt 默认 0.05 s；插值帧已被平滑，慎用其差分
+方向 θ           →  直接读 motion_angle 或 (u, v)，
+                    body_axis_angle 是身体姿态，不等于运动方向
+转弯角 Δθ        →  相邻 observed 帧的 motion_angle 差
+                    (注意 ±180° 回绕)
+停顿判定 v<v_th  →  建议只在 observed 帧上判定，
+                    否则插值会把"停顿"误填成"缓慢移动"
+
+热力图 (图表 1)  →  用 (x, y) 在所有 found 帧上做 histogram2d
+                    网格建议 20×20 (与平台尺度匹配)
+转角分布 (图表2) →  只取 observed + angle_confidence=high 的 Δθ
+停顿/速度 (图3)  →  等待时间 γ 用 observed 帧间真实时间差
+                    速度 v_run 用 observed 段内的平均瞬时速度
+                    两者都报告中位数 (Median)，不用均值
+
+================================================================================
+                              —— 文件结束 ——
+================================================================================

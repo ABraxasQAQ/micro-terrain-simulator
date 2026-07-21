@@ -1,0 +1,27 @@
+{
+  "selected_camera": "1",
+  "scores": {
+    "0": {
+      "file": "MT_outputs\\terrain_ant_tracks\\session_20260716_102527\\camera0_track_processed.csv",
+      "score": 3.010584942136363,
+      "rows": 583.0,
+      "found_ratio": 0.9879931389365352,
+      "observed_ratio": 0.24356775300171526,
+      "interpolated_ratio": 0.7444253859348199,
+      "bad_ratio": 0.012006861063464836,
+      "speed_std_mm_s": 10.67392431123514,
+      "speed_p95_mm_s": 37.34583258628837
+    },
+    "1": {
+      "file": "MT_outputs\\terrain_ant_tracks\\session_20260716_102527\\camera1_track_processed.csv",
+      "score": 3.0822959973744872,
+      "rows": 583.0,
+      "found_ratio": 0.9931389365351629,
+      "observed_ratio": 0.2504288164665523,
+      "interpolated_ratio": 0.7427101200686106,
+      "bad_ratio": 0.00686106346483705,
+      "speed_std_mm_s": 8.031120674215106,
+      "speed_p95_mm_s": 27.95475540011215
+    }
+  }
+}
