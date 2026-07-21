@@ -46,6 +46,7 @@ data/raw/
 
 # Document sources (only track compiled PDFs)
 *.md
+!week4/*.md
 *.tex
 
 # Large binaries (OpenCV DLLs)
