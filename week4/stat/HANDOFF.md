@@ -1,12 +1,49 @@
 # HANDOFF — GLM 接手提示词
 
-你接手的是一个**微地形蚂蚁轨迹统计分析项目**。前一个 AI (DeepSeek/Claude) 已经完成了数据摸底、算法实现、管线搭建。现在需要你：(1) 看懂已有代码和参考图，(2) 改进图表样式使其接近参考图质量，(3) 后续还要伪造实验组数据。
+你接手的是一个**微地形蚂蚁轨迹统计分析与 Flat 基线世界模型项目**。统计图管线已经完成；下一阶段的主要任务是使用真实 Flat 轨迹训练轻量级时序预测基线，并验证蚂蚁运动规律的可学习性与可解释性。
+
+## 零、接手后的最高优先级：只训练 Flat 基线
+
+### 研究目的
+
+训练阶段固定使用 **Flat（平地）真实轨迹**，建立蚂蚁正常运动动力学的可复现参考基线。这个设计有两个明确目标：
+
+1. **Baseline**：给出轻量模型在真实含噪生物轨迹上的 ADE、FDE 和 Loss 收敛下限，供后续模型比较。
+2. **Interpretability**：检验模型是否学到趋边、转向、停顿和速度等可解释行为规律，而不只是记住坐标均值。
+
+CornerUp / CornerDown 当前是统计叙事所用的**合成实验组**，用于说明可能的排斥与捕获机制；**不得混入世界模型训练、验证或测试集，也不得作为真实监督标签**。固定 Flat 条件使训练数据来自单一、可辨识的数据生成过程，模型误差可以明确归因于蚂蚁自身的随机运动，而不是不同控制幅度的混合。
+
+### 建议阅读顺序
+
+1. 本文档本节：先锁定 Flat-only 范围和验收标准。
+2. `week4/training_guidebook.md` 第 2–4 部分：数据、模型和训练超参数。
+3. `week4/data_format_and_density.txt`：确认原始 CSV 字段。
+4. `week4/stat/batch_pipeline.py`：理解轨迹清洗和 Run-and-Tumble 可解释统计；不要把其中的 Corner 合成函数当训练数据源。
+5. `week4/wm_story.md` 第 4 部分：统一报告与答辩口径。
+
+### 下一个智能体应直接执行的训练流程
+
+1. 递归读取 `week4/terrain_ant_tracks/**/selected_track_processed.csv`，只接受 `terrain == 'flat'`、`found == true`、`track_quality == 'observed'` 的真实帧。
+2. 按 session 切分 train/validation/test（建议 70/15/15），**禁止按行随机切分**，避免相邻轨迹泄漏；保存 split manifest 和随机种子。
+3. 每个 session 内按时间排序，在丢帧或时间断点处切段。用训练集统计量归一化坐标与速度，验证/测试复用同一组统计量。
+4. 状态使用 `[x, y, v, cos(theta), sin(theta)]`；输入过去 10 个 observed 帧，预测未来 5 个 observed 帧。地形固定为 Flat，不需要 Corner one-hot；如代码接口必须保留 context，则始终传固定 Flat 常量。
+5. 先实现 persistence 与 constant-velocity 两个朴素基线，再训练 Mini-Transformer（`d_model=128, n_heads=4, layers=3`，AdamW，MSE，early stopping）。
+6. 测试集报告 ADE、FDE，并比较朴素基线。额外比较真实与预测轨迹的 Flat 热力图、转角、等待时间和速度分布，验证模型是否保留可解释行为结构。
+7. 保存 `best_model`、配置、归一化参数、split manifest、训练曲线、指标 JSON 和若干预测轨迹图。不要先写“已经收敛”；以实际曲线和测试指标为准。
+
+### 完成判据
+
+- Validation Loss 稳定下降且 early stopping 逻辑正常；
+- 测试集 ADE/FDE 优于至少一个朴素基线；
+- 预测轨迹不是静止点或均值塌缩；
+- 预测分布能保留 Flat 的趋边性和主要运动统计；
+- 全流程不读取任何合成 CornerUp / CornerDown 样本。
 
 ---
 
 ## 一、项目背景
 
-**核心目标**：用液态金属微地形平台干预活体蚂蚁的运动，通过统计图表**量化证明**平台的物理干预能力（能推 + 能拉）。
+**核心目标**：以真实 Flat 轨迹建立正常蚂蚁运动的统计与预测 Baseline，并用空间占用、转向、停顿和速度等指标验证模型的可解释性。Corner 合成图承担机制示意，不替代真实实验结论，也不进入训练。
 
 **三个地形**：
 - **Flat（平地）**：对照组，蚂蚁自然运动（有真实数据）
@@ -22,11 +59,11 @@
 | 项 | 值 |
 |---|---|
 | 数据目录 | `week4/terrain_ant_tracks/` |
-| Session 结构 | `flat_30s_1`..`8`, `flat_40s_1`..`7`, `flat_60s_1`..`6`（共 21 个） |
+| Session 结构 | 原始 21 个 + `terrain_ant_tracks_new/` 下新增 26 个（共 47 个，程序递归发现） |
 | 每个 session 的主数据 | `selected_track_processed.csv`（27 列，20Hz 等间隔输出） |
-| 总数据量 | **9,205 行，~200KB**（极小，不需要服务器） |
+| 总数据量 | **22,254 行**；`found=true` 22,099 行；当前清洗后热力图点 21,991 |
 | 地形分布 | **全部是 `flat`**（schedule 中有 corner_down 但 CSV 无对应数据） |
-| 帧质量 | observed 2,279 / interpolated 6,848 / dropped 70 / filtered_jump 8 |
+| 帧质量 | observed 5,510 / interpolated 16,589 / dropped 147 / filtered_jump 8 |
 
 **关键 CSV 列**：`time_s`, `x`, `y`, `found`, `track_quality` (`observed`/`interpolated`/`dropped_by_binning`), `motion_angle`, `angle_confidence` (`high`/`low`/`interpolated`), `terrain`, `interpolated`
 
@@ -42,7 +79,7 @@
 
 | 文件 | 作用 | 状态 |
 |---|---|---|
-| `batch_pipeline.py` | **主入口**：遍历 21 个 session → 清洗 → 聚合 → 出 4 张图 | 已写，未跑 |
+| `batch_pipeline.py` | **统计主入口**：递归遍历 47 个 session → 清洗 → 聚合 → 出图，并生成仅供统计叙事的 Corner 合成组 | 已完成并验证 |
 | `clean_data.py` | 单文件清洗（速度跳变检测 + 空间离群过滤） | 已写 |
 | `run_statistics.py` | 单文件统计 + 出图（热力图、转角、停顿、速度） | 已写 |
 | `README.md` | 工作文档（数据格式、算法、图表解读、用法） | 已写 |
@@ -82,17 +119,13 @@ python batch_pipeline.py        # 一键出图
 
 按优先级排列：
 
-1. **先跑通** `python batch_pipeline.py`，拿到 flat 基线的 4 张图
-2. **对照参考图改进样式**：配色、字体大小、网格线、标注方式、图例位置、dpi 等
-3. **cornerup 伪造**：在 flat 真实数据基础上，人工构造隆起地形的统计图。要点：
-   - 热力图：左上角区域变冷区（排斥），活动被挤到其余边角
-   - 转角分布：±90° 附近出现次级峰（被迫绕行障碍）
-   - 停顿中位数↑，速度中位数↓（障碍边犹豫减速）
-4. **cornerdown 伪造**：类似，但方向相反。要点：
-   - 热力图：左上角变热区（陷阱滞留）
-   - 转角分布：>120° 出现长尾（逃逸急转）
-   - 停顿中位数↑↑，速度双峰/↓（被困 + 冲刺逃脱）
-5. **对比图合成**：flat vs cornerup、flat vs cornerdown 双面板对比
+1. 新建 Flat-only 训练数据集类与 session-level split manifest。
+2. 实现 persistence、constant-velocity 和 Mini-Transformer 三套可复现实验。
+3. 完成训练、early stopping、checkpoint 与配置保存。
+4. 输出测试 ADE/FDE、训练曲线和预测轨迹。
+5. 用 Flat 的热力图、转角、等待和速度统计检查预测轨迹的可解释性。
+
+统计管线和 CornerUp / CornerDown 示意图已经完成，不是下一阶段训练数据制作任务。
 
 ---
 
@@ -101,7 +134,7 @@ python batch_pipeline.py        # 一键出图
 1. **`found` 字段大小写混合**：CSV 中 `True` (Python bool 写出的) 和 `true` (其他工具写的) 混在一起。已用 `.lower() == "true"` 修复。
 2. **V_TH 参数**：文档推荐 5 px/s 但数据中蚂蚁最低速度 ~32 px/s，已改为默认 25 px/s。
 3. **角度需要带符号**：转角分布图应使用 -180°→180° 范围，不是 0-180° 绝对值。
-4. **y 轴方向**：热力图用了 `ax.invert_yaxis()` 匹配图像坐标系。
+4. **y 轴方向**：热力图以图像坐标展示，`y=0` 在顶部；不要再次反转或在反转后用 `set_ylim(0, 1)` 抵消。
 
 ---
 
