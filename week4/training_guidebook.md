@@ -8,6 +8,8 @@
 >
 > 可直接作为算法组的开发规范库及答辩技术底稿。
 
+> 当前训练阶段的权威交接与最终参数见 `week4/HANDOFF.md`；若本文旧内容与其冲突，以 HANDOFF 为准。
+
 ---
 
 ## 第一部分：技术叙事与工程定位（The Storyline）
@@ -59,13 +61,13 @@
 
 ### 3.1 状态空间定义（State & Action Space）
 
-- **输入状态向量（Input State $S_t$）**：维度为 5。
+- **输入状态向量（Input State $S_t$）**：维度为 7。
 
   $$
-  S_t = \big[\,x,\ y,\ v,\ \cos(\theta),\ \sin(\theta)\,\big]
+  S_t = \big[\,x,\ y,\ \Delta x,\ \Delta y,\ \sin(\theta),\ \cos(\theta),\ m_{obs}\,\big]
   $$
 
-  > ⚠️ 强烈建议将角度 $\theta$ 拆解为 $\cos$ 和 $\sin$，以消除 $360^\circ \rightarrow 0^\circ$ 的突变数值回绕梯度问题。
+  其中 $m_{obs}$ 标记该时间步是真实检测还是短缺口插值。角度拆为正余弦，以消除 $360^\circ \rightarrow 0^\circ$ 的回绕问题。
 
 - **环境上下文（Context）**：训练条件恒为 Flat。推荐直接省略地形动作向量；若为了保持通用接口而保留，则始终使用固定常量 `flat = [1]`，不可引入合成 Corner 标签。
 
@@ -73,19 +75,20 @@
 
 | 参数 | 推荐值 | 说明 |
 | :--- | :---: | :--- |
-| **上下文历史窗口**（Context Length） | 输入过去 $10$ 个 `observed` 帧 | 代表过去 $2$ 秒的真实记忆 |
-  | **预测未来步长**（Prediction Horizon） | 输出未来 $5$ 个 `observed` 帧 | 预测未来 $1$ 秒的轨迹 |
-  | **数据划分** | 按 session 划分 70/15/15 | 禁止按帧随机划分，防止相邻窗口泄漏 |
+| **上下文历史窗口**（Context Length） | 固定 5 Hz 时间轴上的过去 10 步 | 代表过去 2 秒 |
+| **预测未来步长**（Prediction Horizon） | 输出未来 5 步相对位移 | 预测未来 1 秒的中心轨迹 |
+| **数据划分** | 按 session 划分 33/7/7 | 禁止按帧随机划分，防止相邻窗口泄漏 |
 | **骨干网络结构**（Architecture） | Transformer Encoder | — |
-| 隐藏层维度 `d_model` | $128$ | — |
+| 隐藏层维度 `d_model` | $64$ | 匹配当前小数据量 |
 | 注意力头数 `n_heads` | $4$ | — |
-| 编码器层数 `num_layers` | $3$ 层 | — |
-| 参数量规模 | 约 $100$ 万以内 | 极度轻量，防过拟合 |
+| 编码器层数 `num_layers` | $2$ 层 | — |
+| 前馈层 `dim_feedforward` | $128$ | dropout = 0.1，pre-norm |
+| 参数量规模 | 约 $10$ 万 | 降低小数据过拟合风险 |
 
 ### 3.3 服务器租赁与训练超参数
 
 - **硬件需求**
-  租用单张 **NVIDIA RTX 3090 (24G) / 4090 / 4070Ti** 均可。
+  推荐租用单张 **NVIDIA RTX 3090 24 GB 容器云**，配 4–8 核 CPU、至少 16 GB RAM 和 20 GB 磁盘。该配置完全足够，预计显存低于 2–4 GB，单次训练约 5–30 分钟。
 
 - **训练超参数（Training Hyperparameters）**
 
@@ -94,7 +97,8 @@
   | Optimizer（优化器） | **AdamW**（Weight decay = $1\text{e-}4$） |
   | Learning Rate（学习率） | $3\text{e-}4$（搭配 Cosine Annealing 学习率衰减） |
   | Batch Size（批大小） | $64$ |
-  | Loss Function（损失函数） | **MSE Loss**（均方误差，计算预测坐标与真实坐标的 L2 距离） |
+  | Loss Function（损失函数） | 多步 **SmoothL1** + $0.5\times$ 终点 SmoothL1；插值目标降权 |
+  | Gradient clipping | $1.0$ |
   | Epochs（迭代次数） | $200$，并设置 Early Stopping（若 Validation Loss 连续 20 轮不下降则提前终止），通常 **1 小时内** 可完成训练 |
 
 ---
